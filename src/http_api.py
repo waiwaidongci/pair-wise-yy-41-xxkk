@@ -98,6 +98,33 @@ def make_handler(service: Service, static_dir: str):
                     actor, role = self._identity()
                     del actor
                     self._json(200, {"events": service.audit(role)})
+                elif path == "/api/bridges":
+                    actor, role = self._identity()
+                    del actor
+                    self._json(200, {"bridges": service.list_bridges(role)})
+                elif path == "/api/batches":
+                    actor, role = self._identity()
+                    del actor
+                    query = parse_qs(urlparse(self.path).query)
+                    status = query.get("status", [None])[0]
+                    bridge_code = query.get("bridge_code", [None])[0]
+                    self._json(200, {"batches": service.list_batches(role, status, bridge_code)})
+                elif path.startswith("/api/batches/"):
+                    batch_no = path.split("/")[3]
+                    actor, role = self._identity()
+                    del actor
+                    self._json(200, service.get_batch(batch_no, role))
+                elif path == "/api/notices":
+                    actor, role = self._identity()
+                    del actor
+                    query = parse_qs(urlparse(self.path).query)
+                    bridge_code = query.get("bridge_code", [None])[0]
+                    status = query.get("status", [None])[0]
+                    self._json(200, {"notices": service.list_notices(role, bridge_code, status)})
+                elif path == "/api/alerts":
+                    actor, role = self._identity()
+                    del actor
+                    self._json(200, {"alerts": service.list_alerts(role)})
                 else:
                     self._json(404, {"error": "not_found"})
             except Exception as exc:
@@ -119,6 +146,18 @@ def make_handler(service: Service, static_dir: str):
                     expected = body.get("expected_version")
                     self._json(200, service.transition(
                         item_id, target, expected, actor, role))
+                elif path == "/api/bridges":
+                    self._json(201, service.create_bridge(body, actor, role))
+                elif path == "/api/batches":
+                    self._json(201, service.submit_batch(body, actor, role))
+                elif path == "/api/notices":
+                    self._json(201, service.create_notice(body, actor, role))
+                elif path.startswith("/api/notices/") and path.endswith("/withdraw"):
+                    notice_no = path.split("/")[3]
+                    self._json(200, service.withdraw_notice(notice_no, actor, role))
+                elif path.startswith("/api/notices/") and path.endswith("/items"):
+                    notice_no = path.split("/")[3]
+                    self._json(200, service.update_notice_items(notice_no, body, actor, role))
                 else:
                     self._json(404, {"error": "not_found"})
             except Exception as exc:
